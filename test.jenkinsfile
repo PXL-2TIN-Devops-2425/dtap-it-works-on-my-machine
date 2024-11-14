@@ -1,16 +1,73 @@
 pipeline {
     agent any
-  
+
+    environment {
+        DOCKER_IMAGE = 'mirther/calculator-app'  
+        NODEJS_TOOL = 'testenvnode'  
+        DOCKER_CREDENTIALS = 'docker-PAT'  
+    }
+    
+    tools {
+        nodejs "${NODEJS_TOOL}"
+    }
+
     stages {
-        stage ('cleanup'){
-            steps{
-                // TODO
+        //Dit werkt
+        stage ('cleanup') {
+            steps {
+                cleanWs()
+                echo "Workspace cleaned up."
             }
         }
+        //Dit werkt
         stage('fetch app code') {
             steps {
-                // Get some code from a GitHub repository
-                git branch: 'main', url: 'https://github.com/PXL-2TIN-DevOps-Resources/calculator-app-finished.git'
+                // Haal de broncode op uit de repository
+                sh 'mkdir calculator'
+                dir('calculator')
+                {
+                    git branch: 'main', url: 'https://github.com/PXL-2TIN-DevOps-Resources/calculator-app-finished.git'
+                }
+            }
+        }
+        //Dit werkt
+        stage('Install dependencies') {
+            
+            steps {
+                dir('calculator')
+                {
+                    sh 'npm install'
+                }
+            }
+        }
+        //Dit werkt niet meer je moet mss forken om die dockerfile te veranderen
+        stage('Build artifact') {
+            steps {
+                
+                dir('calculator')
+                {
+                    //sh 'docker compose up'
+                }
+                sh 'pwd'
+            }
+        }
+        //Dit niet doen met PAT maybe
+        stage('Push artifact') {
+            steps {
+                // Push de Docker container naar Docker Hub
+                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS}", usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
+                    sh """
+                    echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+                    docker push $DOCKER_IMAGE
+                    docker logout
+                    """
+                }
+            }
+        }
+
+        stage('deployment') {
+            steps {
+                sh 'docker compose up'
             }
         }
     }
