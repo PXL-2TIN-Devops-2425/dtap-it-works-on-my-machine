@@ -1,9 +1,70 @@
 pipeline {
     agent any
+
+    environment {
+        DOCKER_IMAGE = 'mirther/calculator-app'
+        NODEJS_TOOL = 'testenvnode'
+        
+        // Nieuwe instance maken ben de vockey kwijt
+        PRODUCTION_SERVER = 'ec2-107-21-122-182.compute-1.amazonaws.com' 
+    }
+
     stages {
         stage('dtap production') {
             steps {
-                echo "good luck..."
+                echo "Starting DTAP pipeline for production..."
+            }
+        }
+
+        stage('clean-up') {
+            steps {
+                cleanWs()
+                echo "Workspace cleaned up locally."
+                withCredentials([file(credentialsId: 'vockey-pem-file', variable: 'SSH_KEY')]) {
+                    sh """
+                    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@${PRODUCTION_SERVER} \\
+                        'docker stop calculator-app || true && \\
+                        docker rm calculator-app || true && \\
+                        docker system prune -f'
+                    """
+                    echo "Remote server cleaned up."
+                }
+            }
+        }
+
+        stage('deploy prod') {
+            steps {
+                withCredentials([file(credentialsId: 'vockey-pem-file', variable: 'SSH_KEY')]) {
+                    sh """
+                    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@${PRODUCTION_SERVER} \\
+                        'docker pull ${DOCKER_IMAGE}'
+                    """
+                }
+            }
+        }
+
+        stage('start prod') {
+            steps {
+                withCredentials([file(credentialsId: 'vockey-pem-file', variable: 'SSH_KEY')]) {
+                    sh """
+                    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@${PRODUCTION_SERVER} \\
+                        'docker run -d -p 80:80 --name calculator-app ${DOCKER_IMAGE}'
+                    """
+                    echo "Application started on production server."
+                }
+            }
+        }
+
+        stage('test prod') {
+            steps {
+                script {
+                    def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://${PRODUCTION_SERVER}", returnStdout: true).trim()
+                    if (response != '200') {
+                        error "Production server application is not reachable (status code ${response})"
+                    } else {
+                        echo "Production server application is reachable (status code ${response})"
+                    }
+                }
             }
         }
     }
