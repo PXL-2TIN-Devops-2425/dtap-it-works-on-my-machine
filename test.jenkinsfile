@@ -4,7 +4,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = 'mirther/calculator-app'  
         NODEJS_TOOL = 'testenvnode'  
-        DOCKER_CREDENTIALS = 'docker-PAT'  
+        DOCKER_CREDENTIALS = 'Docker-PAT-FINAL'  
     }
     
     tools {
@@ -26,7 +26,8 @@ pipeline {
                 sh 'mkdir calculator'
                 dir('calculator')
                 {
-                    git branch: 'main', url: 'https://github.com/PXL-2TIN-DevOps-Resources/calculator-app-finished.git'
+                    // We hebben dit geforkt om zo de poort te veranderen in de dockerfile
+                    git branch: 'main', url: 'https://github.com/MirtheReynders/calculator-app-finished'
                 }
             }
         }
@@ -40,34 +41,37 @@ pipeline {
                 }
             }
         }
-        //Dit werkt niet meer je moet mss forken om die dockerfile te veranderen
+        //Dit werkt 
         stage('Build artifact') {
             steps {
                 
                 dir('calculator')
                 {
-                    //sh 'docker compose up'
+                    sh 'docker build -t $DOCKER_IMAGE .'
                 }
                 sh 'pwd'
             }
         }
-        //Dit niet doen met PAT maybe
+        //Dit werkt met PAT
         stage('Push artifact') {
             steps {
-                // Push de Docker container naar Docker Hub
-                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS}", usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
-                    sh """
-                    echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-                    docker push $DOCKER_IMAGE
-                    docker logout
-                    """
-                }
+                withCredentials([string(credentialsId: "${DOCKER_CREDENTIALS}", variable: 'DOCKER_PAT')]) {
+                sh """
+                echo "$DOCKER_PAT" | docker login -u "mirther" --password-stdin
+                docker push $DOCKER_IMAGE
+                docker logout
+                """
+            }
+
             }
         }
 
         stage('deployment') {
             steps {
-                sh 'docker compose up'
+                dir('calculator')
+                {
+                    sh 'docker compose up'
+                }
             }
         }
     }
