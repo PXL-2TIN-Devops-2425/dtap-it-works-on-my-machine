@@ -1,16 +1,77 @@
 pipeline {
     agent any
-  
+
+    environment {
+        DOCKER_IMAGE = 'mirther/calculator-app'  
+        NODEJS_TOOL = 'testenvnode'  
+        DOCKER_CREDENTIALS = 'Docker-PAT-FINAL'  
+    }
+    
+    tools {
+        nodejs "${NODEJS_TOOL}"
+    }
+
     stages {
-        stage ('cleanup'){
-            steps{
-                // TODO
+        //Dit werkt
+        stage ('cleanup') {
+            steps {
+                cleanWs()
+                echo "Workspace cleaned up."
             }
         }
+        //Dit werkt
         stage('fetch app code') {
             steps {
-                // Get some code from a GitHub repository
-                git branch: 'main', url: 'https://github.com/PXL-2TIN-DevOps-Resources/calculator-app-finished.git'
+                // Haal de broncode op uit de repository
+                sh 'mkdir calculator'
+                dir('calculator')
+                {
+                    // We hebben dit geforkt om zo de poort te veranderen in de dockerfile
+                    git branch: 'main', url: 'https://github.com/MirtheReynders/calculator-app-finished'
+                }
+            }
+        }
+        //Dit werkt
+        stage('Install dependencies') {
+            
+            steps {
+                dir('calculator')
+                {
+                    sh 'npm install'
+                }
+            }
+        }
+        //Dit werkt 
+        stage('Build artifact') {
+            steps {
+                
+                dir('calculator')
+                {
+                    sh 'docker build -t $DOCKER_IMAGE .'
+                }
+                sh 'pwd'
+            }
+        }
+        //Dit werkt met PAT
+        stage('Push artifact') {
+            steps {
+                withCredentials([string(credentialsId: "${DOCKER_CREDENTIALS}", variable: 'DOCKER_PAT')]) {
+                sh """
+                echo "$DOCKER_PAT" | docker login -u "mirther" --password-stdin
+                docker push $DOCKER_IMAGE
+                docker logout
+                """
+            }
+
+            }
+        }
+
+        stage('deployment') {
+            steps {
+                dir('calculator')
+                {
+                    sh 'docker compose up'
+                }
             }
         }
     }
