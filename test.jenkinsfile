@@ -55,22 +55,12 @@ pipeline {
         //Dit werkt met PAT
         stage('Push artifact') {
             steps {
-<<<<<<< HEAD
-                // Push de Docker container naar Docker Hub
                 withCredentials([string(credentialsId: "${DOCKER_CREDENTIALS}", variable: 'DOCKER_PAT')]) {
                 sh """
                 echo "$DOCKER_PAT" | docker login -u "mirther" --password-stdin
                 docker push $DOCKER_IMAGE
                 docker logout
                 """
-=======
-                withCredentials([string(credentialsId: "${DOCKER_CREDENTIALS}", variable: 'DOCKER_PAT')]) {
-                sh """
-                echo "$DOCKER_PAT" | docker login -u "mirther" --password-stdin
-                docker push $DOCKER_IMAGE
-                docker logout
-                """
->>>>>>> da7f0fec098f56d88b2702d3caed9f28d22c65cd
             }
 
             }
